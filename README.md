@@ -3,6 +3,10 @@
 A Dock for PureDarwin's Argon desktop, built as a drop-in replacement for `/System/Library/CoreServices/Dock.app`.
 Like the stock Dock it also draws the desktop picture, and it reads the same preferences (`org.puredarwin.Dock`).
 
+![The Applications stack open above the dock](docs/stack.png)
+
+![Magnification with the hovered tile's label](docs/magnification.png)
+
 ## Features
 
 - liquid glass bar: the desktop picture behind the bar is blurred, refracted through a convex rim
