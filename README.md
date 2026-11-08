@@ -3,6 +3,10 @@
 A Dock for PureDarwin's Argon desktop, built as a drop-in replacement for `/System/Library/CoreServices/Dock.app`.
 Like the stock Dock it also draws the desktop picture, and it reads the same preferences (`org.puredarwin.Dock`).
 
+[![InstaDock demo video on YouTube](https://img.youtube.com/vi/b2qlmIyp3NA/hqdefault.jpg)](https://www.youtube.com/watch?v=b2qlmIyp3NA)
+
+▶ [Watch the demo on YouTube](https://www.youtube.com/watch?v=b2qlmIyp3NA)
+
 ![The Applications stack open above the dock](docs/stack.png)
 
 ![Magnification with the hovered tile's label](docs/magnification.png)
