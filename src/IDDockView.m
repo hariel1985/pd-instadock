@@ -75,6 +75,7 @@ void IDDrawPill(NSString *text, NSPoint bottomCenter)
     free(base.px);
     free(pill.px);
     [pillText release];
+    free(under.px);
     [items release];
     [super dealloc];
 }
@@ -331,6 +332,9 @@ static double now_ms(void)
         baseKey[0] = -1;
     }
     clip = NSInsetRect(NSOffsetRect(bar, 0, -ID_SHADOW_FALL), -ID_SHADOW_SPREAD - 2, -ID_SHADOW_SPREAD - 2);
+    // over a picture the whole view is one bitmap, the picture included
+    if (under.px != NULL && under.w == w && under.h == h)
+        clip = bounds;
     for (IDItem *item in items) {
         if (item->kind != IDItemSeparator && item != dragging)
             clip = NSUnionRect(clip, NSInsetRect([self drawnRectForItem:item], -1, -1));
@@ -414,6 +418,8 @@ static double now_ms(void)
         IDBlitPixels(&canvas, &pill, (int)round(NSMinX(r) * scale), (int)round((NSHeight(bounds) - NSMaxY(r)) * scale));
     }
 
+    if (under.px != NULL && under.w == w && under.h == h)
+        IDPutUnder(&canvas, &under, x0, y0, x1, y1);
     profile[4] += now_ms() - tg;
     plane = canvas.px + (size_t)y0 * canvas.stride + 4 * x0;
     rep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&plane pixelsWide:x1 - x0 pixelsHigh:y1 - y0
@@ -459,8 +465,11 @@ static double now_ms(void)
     NSGraphicsContext *context = [NSGraphicsContext currentContext];
     double t0 = now_ms(), t1, t2, t3;
 
-    [[NSColor clearColor] setFill];
-    NSRectFill(dirty);
+    // over a picture the glass's bitmap covers the whole view
+    if (under.px == NULL) {
+        [[NSColor clearColor] setFill];
+        NSRectFill(dirty);
+    }
     if (hide >= 1)
         return;
     dark = [[NSAppearance currentDrawingAppearance] _isDark];

@@ -26,7 +26,12 @@
 "Size" = "Méret";
 "Liquid glass" = "Folyékony üveg";
 "Behaviour" = "Működés";
-"Automatically hide and show the Dock" = "A Dock automatikus elrejtése és megjelenítése";
-"Show indicators for open applications" = "Jelzés a futó programoknál";
-"Applications in the Dock" = "Programok a Dockban";
-"Folders (Stacks)" = "Mappák (Stacks)";
+"Live preview" = "Élő előnézet";
+"%d pt" = "%d pt";
+"Auto-hide" = "Automatikus elrejtés";
+"Takes no room, the pointer brings it back" = "Nem foglal helyet, az egér előhozza";
+"Running indicators" = "Futásjelző pontok";
+"A dot under open applications" = "Pont a futó programok alatt";
+"Dock contents" = "A Dock tartalma";
+"Click an icon to add or remove it" = "Kattints egy ikonra, hogy a Dockba tedd vagy kivedd";
+"Folders" = "Mappák";

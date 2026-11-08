@@ -26,7 +26,12 @@
 "Size" = "Size";
 "Liquid glass" = "Liquid glass";
 "Behaviour" = "Behaviour";
-"Automatically hide and show the Dock" = "Automatically hide and show the Dock";
-"Show indicators for open applications" = "Show indicators for open applications";
-"Applications in the Dock" = "Applications in the Dock";
-"Folders (Stacks)" = "Folders (Stacks)";
+"Live preview" = "Live preview";
+"%d pt" = "%d pt";
+"Auto-hide" = "Auto-hide";
+"Takes no room, the pointer brings it back" = "Takes no room, the pointer brings it back";
+"Running indicators" = "Running indicators";
+"A dot under open applications" = "A dot under open applications";
+"Dock contents" = "Dock contents";
+"Click an icon to add or remove it" = "Click an icon to add or remove it";
+"Folders" = "Folders";

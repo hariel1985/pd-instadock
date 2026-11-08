@@ -100,6 +100,7 @@ typedef struct {
     NSString *pillText;
     BOOL pillDark;
     CGFloat pillScale;
+    IDPixels under;     // when set, an opaque picture of the canvas's size the dock is drawn over, as in the settings preview
 }
 - (void)layoutItems;
 - (BOOL)step; // advances the animations, YES while one is still running
@@ -170,12 +171,18 @@ typedef struct {
 - (instancetype)initWithFolder:(NSString *)folder controller:(IDController *)controller;
 @end
 
+@class IDSlider, IDSwitch, IDChoice, IDIconGrid, IDPreviewDock;
+
 @interface IDPrefsController : NSObject <NSWindowDelegate> {
     IDController *_controller;
     NSWindow *_window;
-    NSSlider *_size, *_magnified, *_glass;
-    NSButton *_magnify, *_autohide, *_indicators;
-    NSMutableArray *_appButtons, *_stackButtons;
+    IDPreviewDock *_preview;
+    NSString *_previewKey;  // what the preview's copies of the items were made from
+    NSImage *_previewPicture;
+    IDSlider *_size, *_magnified, *_glass;
+    IDSwitch *_magnify;
+    IDChoice *_autohide, *_indicators;
+    IDIconGrid *_apps, *_stacks;
 }
 - (instancetype)initWithController:(IDController *)controller;
 - (void)show;
@@ -207,6 +214,8 @@ typedef struct {
 }
 - (NSImage *)iconForPath:(NSString *)path;
 - (NSImage *)resourceIcon:(NSString *)name;
+- (NSString *)labelForPath:(NSString *)path;
+- (NSImage *)desktopPicture;
 - (void)startAnimating;
 - (void)itemsChanged;
 - (void)settingsChanged;
@@ -232,6 +241,8 @@ typedef struct {
 @end
 
 NSString *IDLocalized(NSString *key);
+// the part of the picture under a screen rectangle, in the picture's own points
+NSRect IDPictureRect(NSImage *picture, NSRect screen, NSRect region);
 // AppKit drawing into premultiplied pixels, points scaled to pixels
 IDPixels IDRenderPixels(NSSize points, CGFloat scale, void (^draw)(void));
 #define L(s) IDLocalized(@s)

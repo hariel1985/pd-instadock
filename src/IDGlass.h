@@ -51,4 +51,7 @@ void IDBlitIcon(IDPixels *dst, const IDPixels *levels, int count, float x, float
 // composites src into dst unscaled, its top left at (x, y)
 void IDBlitPixels(IDPixels *dst, const IDPixels *src, int x, int y);
 
+// puts an opaque picture of dst's size under dst's pixels in the rectangle x0..x1, y0..y1
+void IDPutUnder(IDPixels *dst, const IDPixels *under, int x0, int y0, int x1, int y1);
+
 #endif

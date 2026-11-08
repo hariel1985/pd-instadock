@@ -22,7 +22,8 @@ Like the stock Dock it also draws the desktop picture, and it reads the same pre
 - Trash with item count, its contents as a stack, emptying with confirmation
 - context menus: open, keep in dock, quit, force quit, remove, dock options
 - auto-hide (then the dock reserves no screen space)
-- settings window: size, magnification, glass strength, auto-hide, indicators, apps and stacks
+- settings window: a preview of the dock over the desktop picture (live on request), size, magnification,
+  glass strength, auto-hide, indicators, and the apps and folders in the dock as a grid of icons
 
 ## Preferences (`org.puredarwin.Dock`)
 
@@ -35,6 +36,7 @@ Like the stock Dock it also draws the desktop picture, and it reads the same pre
 | `AutoHide`, `ShowIndicators` | booleans |
 | `Glass` | 0–1, refraction and rim light |
 | `PersistentApps`, `PersistentStacks` | arrays of paths |
+| `LivePreview` | whether the settings window's preview follows the pointer, off by default |
 
 ## Building
 

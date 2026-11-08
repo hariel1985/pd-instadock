@@ -1298,6 +1298,11 @@ static BOOL sameSettings(IDSettings a, IDSettings b)
     [prefs show];
 }
 
+- (NSImage *)desktopPicture
+{
+    return ((IDDesktopView *)desktopView)->picture;
+}
+
 // every app a user could keep in the dock
 - (NSArray *)installedApps
 {

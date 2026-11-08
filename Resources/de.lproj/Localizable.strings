@@ -26,7 +26,12 @@
 "Size" = "Größe";
 "Liquid glass" = "Flüssiges Glas";
 "Behaviour" = "Verhalten";
-"Automatically hide and show the Dock" = "Dock automatisch aus- und einblenden";
-"Show indicators for open applications" = "Anzeige für geöffnete Programme";
-"Applications in the Dock" = "Programme im Dock";
-"Folders (Stacks)" = "Ordner (Stapel)";
+"Live preview" = "Live-Vorschau";
+"%d pt" = "%d pt";
+"Auto-hide" = "Automatisch ausblenden";
+"Takes no room, the pointer brings it back" = "Belegt keinen Platz, der Zeiger holt es zurück";
+"Running indicators" = "Laufanzeigen";
+"A dot under open applications" = "Ein Punkt unter geöffneten Programmen";
+"Dock contents" = "Inhalt des Docks";
+"Click an icon to add or remove it" = "Klicke auf ein Symbol, um es hinzuzufügen oder zu entfernen";
+"Folders" = "Ordner";

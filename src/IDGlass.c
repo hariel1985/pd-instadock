@@ -441,3 +441,23 @@ void IDBlitPixels(IDPixels *dst, const IDPixels *src, int x, int y)
         }
     }
 }
+
+void IDPutUnder(IDPixels *dst, const IDPixels *under, int x0, int y0, int x1, int y1)
+{
+    for (int y = y0; y < y1; y++) {
+        uint8_t *out = dst->px + (size_t)y * dst->stride;
+        const uint8_t *in = under->px + (size_t)y * under->stride;
+
+        for (int x = x0; x < x1; x++) {
+            int a = out[4 * x + 3];
+
+            if (a == 0) {
+                memcpy(out + 4 * x, in + 4 * x, 4);
+            } else if (a < 255) {
+                for (int k = 0; k < 3; k++)
+                    out[4 * x + k] = (uint8_t)(out[4 * x + k] + in[4 * x + k] * (255 - a) / 255);
+                out[4 * x + 3] = 255;
+            }
+        }
+    }
+}
