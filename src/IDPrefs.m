@@ -1053,6 +1053,20 @@ static void drawCheck(NSRect circle, BOOL on, NSColor *fill)
     [_preview pointerX:NSWidth([_preview bounds]) * (0.5 + 0.4 * sin(t * 1.4))];
 }
 
+// a closed window is not shown again, a new one is built: the window server does not always show a
+// toplevel that was closed and ordered in again
+- (void)windowWillClose:(NSNotification *)note
+{
+    [_window setDelegate:nil];
+    [_window autorelease];
+    _window = nil;
+    _preview = nil;
+    [_previewKey release];
+    _previewKey = nil;
+    [_previewPicture release];
+    _previewPicture = nil;
+}
+
 - (void)redisplay
 {
     [[_window contentView] setNeedsDisplay:YES];
