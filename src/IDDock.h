@@ -200,6 +200,7 @@ typedef struct {
     NSMutableArray *items;
     IDSettings settings;
     NSString *picture;
+    unsigned pictureLoads; // the newest desktop picture load, older ones that finish later are dropped
     NSTimer *animation;
     NSTimer *hideTimer;
     IDPopup *popup;

@@ -25,6 +25,8 @@ int proc_pidpath(int pid, void *buffer, uint32_t buffersize);
 #define ID_PIDPATH_MAX 4096
 
 static NSString * const DesktopPictures = @"/System/Library/Desktop Pictures";
+// shown when DesktopPicture is unset, or names a file that is gone or cannot be read
+static NSString * const DefaultPicture = @"Sunset";
 static NSString * const FinderPath = @"/System/Library/CoreServices/Finder.app";
 static NSString * const SettingsPath = @"/Applications/Settings.app";
 
@@ -711,20 +713,92 @@ static void retire(NSWindow *window)
         return;
     }
     [self closePopup];
+    // a picture made for another screen size is made again for this one
+    if (!NSEqualSizes([[self desktopPicture] size], screen.size))
+        [self reloadPicture];
     [desktop setFrame:screen display:YES];
     [desktop orderFront:nil];
     [self placeWindows];
 }
 
+// the file a DesktopPicture value names: a name in the system folder or a full path
+static NSString *picturePath(NSString *name)
+{
+    return [name isAbsolutePath] ? name : [[DesktopPictures stringByAppendingPathComponent:name] stringByAppendingPathExtension:@"jpg"];
+}
+
+// the picture cropped and scaled once to the screen's pixels, so neither the desktop nor the blurred backdrop
+// resamples the whole file again; the picture as it is while the screen's size is not known yet
+static NSImage *screenPicture(NSString *path, NSSize screen, CGFloat scale)
+{
+    NSImage *full = [[[NSImage alloc] initWithContentsOfFile:path] autorelease], *sized;
+    NSSize s = [full size];
+    NSInteger w = (NSInteger)ceil(screen.width * scale), h = (NSInteger)ceil(screen.height * scale);
+    NSRect all = NSMakeRect(0, 0, screen.width, screen.height);
+    NSBitmapImageRep *rep;
+
+    if (full == nil || s.width <= 0 || s.height <= 0)
+        return nil;
+    if (screen.width < 100 || screen.height < 100)
+        return full;
+    rep = [[[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:w pixelsHigh:h bitsPerSample:8 samplesPerPixel:4
+                                                     hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace
+                                                  bytesPerRow:0 bitsPerPixel:32] autorelease];
+    [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithBitmapImageRep:rep]];
+    [full drawInRect:NSMakeRect(0, 0, w, h) fromRect:IDPictureRect(full, all, all) operation:NSCompositeCopy fraction:1];
+    [[NSGraphicsContext currentContext] flushGraphics];
+    [NSGraphicsContext restoreGraphicsState];
+    sized = [[[NSImage alloc] initWithSize:screen] autorelease];
+    [sized addRepresentation:rep];
+    return sized;
+}
+
+// the named picture at the screen's size, the default one in its place when it does not load
+static NSImage *loadPicture(NSString *name, NSSize screen, CGFloat scale)
+{
+    NSImage *image = screenPicture(picturePath(name), screen, scale);
+
+    if (image == nil) {
+        NSLog(@"Dock: no desktop picture at %@, showing %@", picturePath(name), DefaultPicture);
+        image = screenPicture(picturePath(DefaultPicture), screen, scale);
+    }
+    return image;
+}
+
 - (NSImage *)chosenPicture
 {
-    NSString *path = [picture isAbsolutePath] ? picture
-                                              : [[DesktopPictures stringByAppendingPathComponent:picture] stringByAppendingPathExtension:@"jpg"];
-    NSImage *image = [[[NSImage alloc] initWithContentsOfFile:path] autorelease];
+    return loadPicture(picture, [[NSScreen mainScreen] frame].size, [self scale]);
+}
 
-    if (image == nil)
-        NSLog(@"Dock: no desktop picture at %@", path);
-    return image;
+// a large photo takes a while to decode, the desktop keeps the old picture until the new one is ready
+- (void)reloadPicture
+{
+    NSString *name = [[picture copy] autorelease];
+    NSSize screen = [[NSScreen mainScreen] frame].size;
+    CGFloat scale = [self scale];
+    unsigned load = ++pictureLoads;
+
+    [name retain];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+        NSImage *image = [loadPicture(name, screen, scale) retain];
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            IDDesktopView *view = (IDDesktopView *)desktopView;
+
+            if (load == pictureLoads && image != nil) {
+                [view->picture release];
+                view->picture = [image retain];
+                [view setNeedsDisplay:YES];
+                [self renderBackdrop];
+                [prefs refresh];
+            }
+            [image release];
+            [name release];
+        });
+        [pool release];
+    });
 }
 
 - (void)makeWindows
@@ -789,16 +863,11 @@ static BOOL sameSettings(IDSettings a, IDSettings b)
         NSLog(@"Dock: screen %@ input %@ overlay %@", NSStringFromRect([[NSScreen mainScreen] frame]), NSStringFromRect([input frame]),
               NSStringFromRect([overlay frame]));
     CFPreferencesAppSynchronize(IDDomain);
-    chosen = [self pref:@"DesktopPicture"] ?: @"Sunset";
+    chosen = [self pref:@"DesktopPicture"] ?: DefaultPicture;
     if (![chosen isEqualToString:picture]) {
-        IDDesktopView *view = (IDDesktopView *)desktopView;
-
         [picture release];
         picture = [chosen copy];
-        [view->picture release];
-        view->picture = [[self chosenPicture] retain];
-        [view setNeedsDisplay:YES];
-        [self renderBackdrop];
+        [self reloadPicture];
     }
     if (!sameSettings(now, settings)) {
         settings = now;
@@ -1370,7 +1439,7 @@ static BOOL sameSettings(IDSettings a, IDSettings b)
     extraRunning = [[NSMutableArray alloc] init];
     settings = [self readSettings];
     shown = !settings.autohide;
-    picture = [([self pref:@"DesktopPicture"] ?: @"Sunset") copy];
+    picture = [([self pref:@"DesktopPicture"] ?: DefaultPicture) copy];
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(placeDesktop:)
                                                  name:NSApplicationDidChangeScreenParametersNotification object:nil];
