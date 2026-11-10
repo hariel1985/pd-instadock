@@ -12,6 +12,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#if __has_include(<notify.h>)
+#include <notify.h>
+#else
+// libSystem exports notify(3) but the SDK ships without its header
+uint32_t notify_post(const char *name);
+#endif
 
 // libproc, which the SDK ships without its header
 int proc_listallpids(void *buffer, int buffersize);
@@ -20,6 +26,7 @@ int proc_pidpath(int pid, void *buffer, uint32_t buffersize);
 
 static NSString * const DesktopPictures = @"/System/Library/Desktop Pictures";
 static NSString * const FinderPath = @"/System/Library/CoreServices/Finder.app";
+static NSString * const SettingsPath = @"/Applications/Settings.app";
 
 IDPixels IDRenderPixels(NSSize points, CGFloat scale, void (^draw)(void))
 {
@@ -126,6 +133,7 @@ static int makeLevels(NSImage *image, IDPixels levels[3])
 // fills the screen with the picture, cropped to keep its aspect like macOS's fill mode
 @interface IDDesktopView : NSView {
 @public
+    IDController *controller;
     NSImage *picture;
 }
 @end
@@ -152,6 +160,18 @@ NSRect IDPictureRect(NSImage *picture, NSRect screen, NSRect region)
     if (picture == nil || [picture size].width <= 0 || [picture size].height <= 0)
         return;
     [picture drawInRect:bounds fromRect:IDPictureRect(picture, bounds, bounds) operation:NSCompositeCopy fraction:1];
+}
+
+// the desktop's own menu, as Finder gives it on macOS; AppKit opens it on a right click
+- (NSMenu *)menuForEvent:(NSEvent *)event
+{
+    NSMenu *menu = [[[NSMenu alloc] initWithTitle:@""] autorelease];
+
+    [[menu addItemWithTitle:IDLocalized(@"Change Wallpaper…") action:@selector(showWallpaperSettings:) keyEquivalent:@""]
+        setTarget:controller];
+    [[menu addItemWithTitle:IDLocalized(@"Display Settings…") action:@selector(showDisplaySettings:) keyEquivalent:@""]
+        setTarget:controller];
+    return menu;
 }
 
 @end
@@ -715,6 +735,7 @@ static void retire(NSWindow *window)
     desktop = [[NSWindow alloc] initWithContentRect:frame styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:NO];
     [desktop setLevel:NSDesktopWindowLevel];
     view = [[IDDesktopView alloc] initWithFrame:frame];
+    view->controller = self;
     view->picture = [[self chosenPicture] retain];
     [view setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
     [desktop setContentView:view];
@@ -1296,6 +1317,25 @@ static BOOL sameSettings(IDSettings a, IDSettings b)
     if (prefs == nil)
         prefs = [[IDPrefsController alloc] initWithController:self];
     [prefs show];
+}
+
+// a Settings that runs already is told through OpenPane and a notification, a new one reads OpenPane at launch
+- (void)openSettingsPane:(NSString *)pane
+{
+    CFPreferencesSetAppValue(CFSTR("OpenPane"), (CFStringRef)pane, CFSTR("org.puredarwin.Settings"));
+    CFPreferencesAppSynchronize(CFSTR("org.puredarwin.Settings"));
+    notify_post("org.puredarwin.Settings.OpenPane");
+    [[NSWorkspace sharedWorkspace] launchApplication:SettingsPath];
+}
+
+- (void)showWallpaperSettings:(id)sender
+{
+    [self openSettingsPane:@"appearance"];
+}
+
+- (void)showDisplaySettings:(id)sender
+{
+    [self openSettingsPane:@"displays"];
 }
 
 - (NSImage *)desktopPicture
