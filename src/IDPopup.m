@@ -28,9 +28,7 @@ void IDDrawShadow(NSRect r, CGFloat radius, CGFloat spread, CGFloat strength);
 
 static NSFont *uiFont(CGFloat size, BOOL medium)
 {
-    NSFont *font = [NSFont fontWithName:medium ? @"Inter-Medium" : @"Inter-Regular" size:size];
-
-    return font ?: [NSFont systemFontOfSize:size];
+    return [NSFont systemFontOfSize:size weight:medium ? NSFontWeightMedium : NSFontWeightRegular];
 }
 
 static BOOL isDark(void)

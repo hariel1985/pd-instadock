@@ -305,7 +305,7 @@ static NSColor *hsb(CGFloat h, CGFloat s, CGFloat v)
                                                                    bitsPerPixel:32] autorelease];
     NSImage *image = [[[NSImage alloc] initWithSize:NSMakeSize(256, 256)] autorelease];
     NSString *letter = [name length] ? [[name substringToIndex:1] uppercaseString] : @"?";
-    NSFont *font = [NSFont fontWithName:@"Inter-Medium" size:136] ?: [NSFont boldSystemFontOfSize:136];
+    NSFont *font = [NSFont systemFontOfSize:136 weight:NSFontWeightMedium];
     NSDictionary *attributes = @{ NSFontAttributeName: font, NSForegroundColorAttributeName: [NSColor whiteColor] };
     CGFloat hue = (CGFloat)([name hash] % 360) / 360;
     NSRect tile = NSMakeRect(20, 20, 216, 216);

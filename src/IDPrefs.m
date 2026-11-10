@@ -66,9 +66,7 @@ static NSColor *accentColor(void)
 
 static NSFont *uiFont(CGFloat size, BOOL medium)
 {
-    NSFont *font = [NSFont fontWithName:medium ? @"Inter-Medium" : @"Inter-Regular" size:size];
-
-    return font ?: [NSFont systemFontOfSize:size];
+    return [NSFont systemFontOfSize:size weight:medium ? NSFontWeightMedium : NSFontWeightRegular];
 }
 
 static NSDictionary *textAttributes(CGFloat size, BOOL medium, NSColor *color)

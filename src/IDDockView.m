@@ -21,9 +21,7 @@
 
 static NSFont *labelFont(void)
 {
-    NSFont *font = [NSFont fontWithName:@"Inter-Medium" size:12.5];
-
-    return font ?: ([NSFont fontWithName:@"Inter-Regular" size:12.5] ?: [NSFont systemFontOfSize:12.5]);
+    return [NSFont systemFontOfSize:12.5 weight:NSFontWeightMedium];
 }
 
 static NSDictionary *labelAttributes(void)
@@ -447,7 +445,7 @@ static double now_ms(void)
 - (void)drawCount:(NSUInteger)count onIcon:(NSRect)icon
 {
     NSString *text = count > 99 ? @"99+" : [NSString stringWithFormat:@"%lu", (unsigned long)count];
-    NSFont *font = [NSFont fontWithName:@"Inter-Medium" size:11] ?: [NSFont boldSystemFontOfSize:11];
+    NSFont *font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     NSDictionary *attributes = @{ NSFontAttributeName: font, NSForegroundColorAttributeName: [NSColor whiteColor] };
     NSSize size = [text sizeWithAttributes:attributes];
     CGFloat h = 18, w = MAX(h, ceil(size.width) + 10);
