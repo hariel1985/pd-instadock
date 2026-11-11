@@ -16,7 +16,11 @@
 #include <notify.h>
 #else
 // libSystem exports notify(3) but the SDK ships without its header
+#define NOTIFY_STATUS_OK 0
 uint32_t notify_post(const char *name);
+uint32_t notify_register_check(const char *name, int *out_token);
+uint32_t notify_set_state(int token, uint64_t state64);
+uint32_t notify_cancel(int token);
 #endif
 
 // libproc, which the SDK ships without its header
@@ -1210,16 +1214,30 @@ static BOOL sameSettings(IDSettings a, IDSettings b)
     }
 }
 
+// AppKit's reopen request: the notification's state names the pid that should come forward
+static void reopenProcess(pid_t pid)
+{
+    int token;
+
+    if (notify_register_check("org.puredarwin.appkit.reopen", &token) != NOTIFY_STATUS_OK)
+        return;
+    notify_set_state(token, (uint64_t)pid);
+    notify_post("org.puredarwin.appkit.reopen");
+    notify_cancel(token);
+}
+
 - (void)activate:(IDItem *)item
 {
     switch (item->kind) {
     case IDItemApp:
-        // nothing can bring another app's windows forward yet, a hop shows the click arrived
         if (!item->running) {
             [[NSWorkspace sharedWorkspace] launchApplication:item->path];
             item->bounceStart = [NSDate timeIntervalSinceReferenceDate];
         } else {
-            item->bounceStart = [NSDate timeIntervalSinceReferenceDate] - 6.0 + 0.62;
+            // a running app is asked to reopen, like macOS's reopen event: AppKit activates it, brings
+            // its windows forward and opens one if it has none
+            for (NSNumber *pid in item->pids)
+                reopenProcess([pid intValue]);
         }
         [self startAnimating];
         break;
