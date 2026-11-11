@@ -25,12 +25,15 @@ if [ "${1:-}" = --restore ]; then
 fi
 
 need "$SDK/usr/lib/libAppKit.dylib" "a puredarwin-vm-ben futtasd előbb az sdk.sh-t"
+# az AppKit fejlécei a VM-be telepített AppKit forrásfájából (OUT=<az a build-kimenet>): az image-éi még
+# CGWindowLevelKey-indexeket adnak szintnek (NSDesktopWindowLevel 2), az új AppKit valódi macOS-értékeket vár
+need "$OUT/frameworks/include/AppKit/AppKit.h" "OUT=<a VM AppKitjének build-kimenete> kell (frameworks.sh AppKit)"
 o="$here/build"
 app="$o/Dock.app/Contents"
 rm -rf "$o"
 mkdir -p "$o/obj" "$o/svg" "$app/MacOS" "$app/Resources"
 
-cflags=("${CC_TARGET[@]}" -O2 -fno-omit-frame-pointer -D_DARWIN_C_SOURCE -fno-stack-protector "${SDK_INC[@]}"
+cflags=("${CC_TARGET[@]}" -O2 -fno-omit-frame-pointer -D_DARWIN_C_SOURCE -fno-stack-protector "${FW_INC[@]}" "${SDK_INC[@]}"
         -F"$SDK/System/Library/Frameworks" -Wall -Wno-deprecated-declarations)
 for src in "$here"/src/*.m; do
   "$ZIG" cc "${cflags[@]}" -x objective-c -fno-objc-arc -fobjc-exceptions -fblocks \
