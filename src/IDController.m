@@ -373,13 +373,10 @@ static NSColor *hsb(CGFloat h, CGFloat s, CGFloat v)
 
         if (own[name] != nil)
             image = [self resourceIcon:own[name]];
-        if (image == nil && [file length] > 0) {
-            NSString *full = [[bundle resourcePath] stringByAppendingPathComponent:file];
-
-            if ([[full pathExtension] length] == 0)
-                full = [full stringByAppendingPathExtension:@"png"];
-            image = [[[NSImage alloc] initWithContentsOfFile:full] autorelease];
-        }
+        // the icon file is found the way the rest of the system finds it: a name without an
+        // extension is an .icns, as on macOS
+        if (image == nil && [file length] > 0)
+            image = [[NSWorkspace sharedWorkspace] iconForFile:path];
         if (image == nil)
             image = [self letterIcon:[self labelForPath:path]];
     } else if (directory) {
