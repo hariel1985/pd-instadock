@@ -28,6 +28,10 @@ need "$SDK/usr/lib/libAppKit.dylib" "a puredarwin-vm-ben futtasd előbb az sdk.s
 # az AppKit fejlécei a VM-be telepített AppKit forrásfájából (OUT=<az a build-kimenet>): az image-éi még
 # CGWindowLevelKey-indexeket adnak szintnek (NSDesktopWindowLevel 2), az új AppKit valódi macOS-értékeket vár
 need "$OUT/frameworks/include/AppKit/AppKit.h" "OUT=<a VM AppKitjének build-kimenete> kell (frameworks.sh AppKit)"
+# egy régi fa fejlécei is megvannak (az alap ~/vm/build/out-éi ilyenek): azokkal az asztal 2-es szintű, közönséges
+# ablak lesz, és minden más ablakot eltakar, amikor a Dock elé hozza (képernyőváltáskor, a munkamenet indulásakor)
+grep -q 'NSDesktopWindowLevel = INT32_MIN' "$OUT/frameworks/include/AppKit/NSWindow.h" ||
+  { echo "$OUT/frameworks/include AppKit-fejlécei még CGWindowLevelKey-indexeket adnak szintnek: OUT=<a VM-be telepített AppKit build-kimenete> kell" >&2; exit 1; }
 o="$here/build"
 app="$o/Dock.app/Contents"
 rm -rf "$o"
