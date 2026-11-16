@@ -660,6 +660,8 @@ static NSString *cutMiddle(NSString *s, CGFloat width, NSDictionary *attrs)
 
             [self select:item on:inside ? !was : was];
         }
+        // the tracking loop takes the events itself, so it draws what changed itself too
+        [self displayIfNeeded];
         if ([e type] == NSLeftMouseUp)
             break;
     }
