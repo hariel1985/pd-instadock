@@ -189,6 +189,30 @@ typedef struct {
 - (void)refresh;
 @end
 
+@class IDSwitcherView;
+
+// the application switcher, Command-Tab: the compositor posts the keys, this draws it and switches
+@interface IDSwitcher : NSObject {
+@public
+    IDController *controller;
+    NSMutableArray *recent;  // app bundles, the most recently used first
+    NSArray *apps;           // the switcher's row, while a switch is on
+    NSInteger selected;
+    NSInteger offset;        // where the pointer moved the choice, against the steps taken
+    int16_t steps;
+    uint32_t session, done;
+    unsigned lastActions;
+    CGFloat cell;
+    NSScreen *screenUsed;
+    NSWindow *window;
+    IDSwitcherView *view;
+    NSTimer *showTimer, *refreshTimer;
+}
+- (instancetype)initWithController:(IDController *)controller;
+- (NSRect)cellRect:(NSUInteger)i;
+- (void)layout;
+@end
+
 @interface IDController : NSObject {
 @public
     NSWindow *desktop;
@@ -212,6 +236,7 @@ typedef struct {
     NSMutableDictionary *bundleCache;
     NSMutableArray *extraRunning; // running apps that are not pinned, in the order they appeared
     NSUInteger ticks;
+    IDSwitcher *switcher;
 }
 - (NSImage *)iconForPath:(NSString *)path;
 - (NSImage *)resourceIcon:(NSString *)name;
@@ -230,6 +255,8 @@ typedef struct {
 - (void)showPrefs:(id)sender;
 - (void)emptyTrash:(id)sender;
 - (NSArray *)installedApps;
+- (NSDictionary *)runningBundles;
+- (NSString *)bundleForPid:(pid_t)pid;
 
 // from the input view, in the overlay's coordinates
 - (void)pointerMovedTo:(NSPoint)p;
