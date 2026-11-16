@@ -29,8 +29,10 @@ int proc_pidpath(int pid, void *buffer, uint32_t buffersize);
 #define ID_PIDPATH_MAX 4096
 
 static NSString * const DesktopPictures = @"/System/Library/Desktop Pictures";
-// shown when DesktopPicture is unset, or names a file that is gone or cannot be read
-static NSString * const DefaultPicture = @"Sunset";
+// shown when DesktopPicture is unset, or names a file that is gone or cannot be read: the system's own pair, a
+// picture by day and one by night
+static NSString * const DefaultPicture = @"Seaside Light";
+static NSString * const DefaultPictureDark = @"Seaside Dark";
 static NSString * const FinderPath = @"/System/Library/CoreServices/Finder.app";
 static NSString * const SettingsPath = @"/Applications/Settings.app";
 
@@ -755,21 +757,43 @@ static NSImage *screenPicture(NSString *path, NSSize screen, CGFloat scale)
     return sized;
 }
 
-// the named picture at the screen's size, the default one in its place when it does not load
-static NSImage *loadPicture(NSString *name, NSSize screen, CGFloat scale)
+// the named picture at the screen's size, the default one of the appearance in its place when it does not load
+static NSImage *loadPicture(NSString *name, BOOL dark, NSSize screen, CGFloat scale)
 {
     NSImage *image = screenPicture(picturePath(name), screen, scale);
+    NSString *fallback = dark ? DefaultPictureDark : DefaultPicture;
 
     if (image == nil) {
-        NSLog(@"Dock: no desktop picture at %@, showing %@", picturePath(name), DefaultPicture);
-        image = screenPicture(picturePath(DefaultPicture), screen, scale);
+        NSLog(@"Dock: no desktop picture at %@, showing %@", picturePath(name), fallback);
+        image = screenPicture(picturePath(fallback), screen, scale);
     }
     return image;
 }
 
+static BOOL appearanceIsDark(void)
+{
+    return [[NSApp effectiveAppearance] _isDark];
+}
+
+// The picture of the appearance of the moment: DesktopPictureDark in the dark when it is set, DesktopPicture otherwise,
+// which alone is both; with neither set, the system's pair. The app's appearance turns with the theme notification and
+// when Auto passes its hour.
+- (NSString *)shownPicture
+{
+    NSString *light = [self pref:@"DesktopPicture"], *dark = [self pref:@"DesktopPictureDark"];
+
+    if (![light isKindOfClass:[NSString class]])
+        light = nil;
+    if (![dark isKindOfClass:[NSString class]])
+        dark = nil;
+    if (appearanceIsDark())
+        return dark ?: light ?: DefaultPictureDark;
+    return light ?: DefaultPicture;
+}
+
 - (NSImage *)chosenPicture
 {
-    return loadPicture(picture, [[NSScreen mainScreen] frame].size, [self scale]);
+    return loadPicture(picture, appearanceIsDark(), [[NSScreen mainScreen] frame].size, [self scale]);
 }
 
 // a large photo takes a while to decode, the desktop keeps the old picture until the new one is ready
@@ -778,12 +802,13 @@ static NSImage *loadPicture(NSString *name, NSSize screen, CGFloat scale)
     NSString *name = [[picture copy] autorelease];
     NSSize screen = [[NSScreen mainScreen] frame].size;
     CGFloat scale = [self scale];
+    BOOL dark = appearanceIsDark();
     unsigned load = ++pictureLoads;
 
     [name retain];
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-        NSImage *image = [loadPicture(name, screen, scale) retain];
+        NSImage *image = [loadPicture(name, dark, screen, scale) retain];
 
         dispatch_async(dispatch_get_main_queue(), ^{
             IDDesktopView *view = (IDDesktopView *)desktopView;
@@ -864,7 +889,7 @@ static BOOL sameSettings(IDSettings a, IDSettings b)
         NSLog(@"Dock: screen %@ input %@ overlay %@", NSStringFromRect([[NSScreen mainScreen] frame]), NSStringFromRect([input frame]),
               NSStringFromRect([overlay frame]));
     CFPreferencesAppSynchronize(IDDomain);
-    chosen = [self pref:@"DesktopPicture"] ?: DefaultPicture;
+    chosen = [self shownPicture];
     if (![chosen isEqualToString:picture]) {
         [picture release];
         picture = [chosen copy];
@@ -1454,7 +1479,7 @@ static void reopenProcess(pid_t pid)
     extraRunning = [[NSMutableArray alloc] init];
     settings = [self readSettings];
     shown = !settings.autohide;
-    picture = [([self pref:@"DesktopPicture"] ?: DefaultPicture) copy];
+    picture = [[self shownPicture] copy];
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(placeDesktop:)
                                                  name:NSApplicationDidChangeScreenParametersNotification object:nil];
