@@ -134,6 +134,55 @@ static int makeLevels(NSImage *image, IDPixels levels[3])
 
 @end
 
+#pragma mark - the desktop picture
+
+// fills the screen with the picture, cropped to keep its aspect like macOS's fill mode
+@interface IDDesktopView : NSView {
+@public
+    IDController *controller;
+    NSImage *picture;
+}
+@end
+
+@implementation IDDesktopView
+
+// the part of the picture under a screen rectangle, in the picture's own points
+NSRect IDPictureRect(NSImage *picture, NSRect screen, NSRect region)
+{
+    NSSize size = [picture size];
+    CGFloat scale = MAX(NSWidth(screen) / size.width, NSHeight(screen) / size.height);
+    NSPoint origin = NSMakePoint((size.width - NSWidth(screen) / scale) / 2, (size.height - NSHeight(screen) / scale) / 2);
+
+    return NSMakeRect(origin.x + (NSMinX(region) - NSMinX(screen)) / scale, origin.y + (NSMinY(region) - NSMinY(screen)) / scale,
+                      NSWidth(region) / scale, NSHeight(region) / scale);
+}
+
+- (void)drawRect:(NSRect)dirty
+{
+    NSRect bounds = [self bounds];
+
+    [[NSColor colorWithCalibratedRed:0.85 green:0.47 blue:0.35 alpha:1] setFill];
+    NSRectFill(bounds);
+    if (picture == nil || [picture size].width <= 0 || [picture size].height <= 0)
+        return;
+    [picture drawInRect:bounds fromRect:IDPictureRect(picture, bounds, bounds) operation:NSCompositeCopy fraction:1];
+}
+
+// Finder's desktop items lie over this window and its menu is Finder's, as on macOS; this one is seen only
+// while Finder is not running
+- (NSMenu *)menuForEvent:(NSEvent *)event
+{
+    NSMenu *menu = [[[NSMenu alloc] initWithTitle:@""] autorelease];
+
+    [[menu addItemWithTitle:IDLocalized(@"Change Wallpaper…") action:@selector(showWallpaperSettings:) keyEquivalent:@""]
+        setTarget:controller];
+    [[menu addItemWithTitle:IDLocalized(@"Display Settings…") action:@selector(showDisplaySettings:) keyEquivalent:@""]
+        setTarget:controller];
+    return menu;
+}
+
+@end
+
 #pragma mark - the controller
 
 @implementation IDController
@@ -672,12 +721,6 @@ static void retire(NSWindow *window)
     [desktop setFrame:screen display:YES];
     [desktop orderFront:nil];
     [self placeWindows];
-    [(IDDesktopView *)desktopView layoutIcons];
-}
-
-- (CGFloat)dockReserve
-{
-    return settings.autohide ? 0 : ID_SCREEN_GAP + ID_PAD_TOP + settings.tile + ID_PAD_BOTTOM;
 }
 
 // the file a DesktopPicture value names: a name in the system folder or a full path
@@ -765,17 +808,14 @@ static NSImage *loadPicture(NSString *name, NSSize screen, CGFloat scale)
     NSRect frame = NSMakeRect(0, 0, 1024, 768);
     IDDesktopView *view;
 
-    desktop = [[IDDesktopWindow alloc] initWithContentRect:frame styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:NO];
+    desktop = [[NSWindow alloc] initWithContentRect:frame styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:NO];
     [desktop setLevel:NSDesktopWindowLevel];
     view = [[IDDesktopView alloc] initWithFrame:frame];
     view->controller = self;
     view->picture = [[self chosenPicture] retain];
     [view setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-    [view readPreferences];
     [desktop setContentView:view];
-    [desktop setInitialFirstResponder:view];
     desktopView = view;
-    [view startWatching];
 
     dockView = [[IDDockView alloc] initWithFrame:NSMakeRect(0, 0, 100, 100)];
     dockView->controller = self;
@@ -801,7 +841,6 @@ static NSImage *loadPicture(NSString *name, NSSize screen, CGFloat scale)
     if (!settings.autohide)
         shown = YES;
     [self placeWindows];
-    [(IDDesktopView *)desktopView layoutIcons];
     [self startAnimating];
     [prefs refresh];
 }

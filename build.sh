@@ -48,7 +48,7 @@ done
 # ugyanazok a könyvtárak, mint a PD saját AppKit-alkalmazásaiban
 ld64 -L"$SDK/usr/lib" -F"$SDK/System/Library/Frameworks" "$o"/obj/*.o \
   -framework AppKit -framework QuartzCore -framework CoreText -framework CoreGraphics \
-  -framework Onyx2D -lWindowServer -lcompression -lFoundation -lCoreFoundation -lobjc -lSystem \
+  -framework Onyx2D -lWindowServer -lFoundation -lCoreFoundation -lobjc -lSystem \
   -o "$app/MacOS/Dock"
 python3 -I "$V/tools/check-imports.py" "$SDK" "$STAGE" "$app/MacOS/Dock"
 
