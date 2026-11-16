@@ -1166,8 +1166,9 @@ static BOOL sameSettings(IDSettings a, IDSettings b)
     if ([[path pathExtension] isEqualToString:@"app"]) {
         [[NSWorkspace sharedWorkspace] launchApplication:path];
     } else if (directory) {
-        // Finder opens at home and cannot be pointed at a folder yet
-        [[NSWorkspace sharedWorkspace] launchApplication:FinderPath];
+        // LaunchServices hands a folder to Finder, which opens a window there
+        if (![[NSWorkspace sharedWorkspace] openFile:path])
+            [[NSWorkspace sharedWorkspace] launchApplication:FinderPath];
     } else {
         [[NSWorkspace sharedWorkspace] openFile:path];
     }

@@ -527,9 +527,9 @@ static NSString *cutMiddle(NSString *s, CGFloat width, NSDictionary *attrs)
 
 - (NSColor *)selectionColor
 {
-    // the accent blue while the desktop has the keyboard, grey when another app has it, as Finder shows it
+    // the accent colour while the desktop has the keyboard, grey when another app has it, as Finder shows it
     if ([[self window] isKeyWindow])
-        return [NSColor colorWithCalibratedRed:0.04 green:0.39 blue:0.88 alpha:1];
+        return [NSColor controlAccentColor];
     return [NSColor colorWithCalibratedWhite:0.55 alpha:0.85];
 }
 
@@ -865,8 +865,11 @@ static NSString *cutMiddle(NSString *s, CGFloat width, NSDictionary *attrs)
     editing = item;
     title = [item title];
     label = [self labelRectFor:item];
-    field = labelRight ? NSMakeRect(NSMinX(label), floor(NSMidY(label) - 10), [self labelWidth] + 8, 20)
-                       : NSMakeRect(floor(NSMidX([self iconRectFor:item]) - (cell.width + 30) / 2), NSMaxY(label) - 20, cell.width + 30, 20);
+    // as wide as the name with some room to type, never wider than two cells nor off the screen
+    CGFloat want = MIN(MAX(widthOf(title, @{ NSFontAttributeName : [self labelFont] }) + 24, iconSize + 16), 2 * cell.width);
+    field = labelRight ? NSMakeRect(NSMinX(label), floor(NSMidY(label) - 10), want, 20)
+                       : NSMakeRect(floor(NSMidX([self iconRectFor:item]) - want / 2), NSMaxY(label) - 20, want, 20);
+    field.origin.x = MAX(MIN(NSMinX(field), NSMaxX([self bounds]) - NSWidth(field) - 2), 2);
     editor = [[NSTextField alloc] initWithFrame:field];
     [editor setStringValue:title];
     [editor setFont:[self labelFont]];
@@ -1077,10 +1080,14 @@ static NSString *cutMiddle(NSString *s, CGFloat width, NSDictionary *attrs)
     for (NSString *from in paths) {
         NSString *name = [from lastPathComponent];
 
-        // cut and pasted where it already is: nothing to do
-        if (move && [[from stringByDeletingLastPathComponent] isEqualToString:dir])
-            continue;
-        name = [self freeName:name in:dir];
+        // cut and pasted where it already is: nothing to do; copied there: a copy, named as Duplicate names it
+        if ([[from stringByDeletingLastPathComponent] isEqualToString:dir]) {
+            if (move)
+                continue;
+            name = [self copyName:name];
+        } else {
+            name = [self freeName:name in:dir];
+        }
         [targets addObject:@[ from, [dir stringByAppendingPathComponent:name] ]];
     }
     if (move) {
@@ -1197,8 +1204,12 @@ static NSString *sizeText(unsigned long long bytes)
             i++;
         }
         // decimal units, as Finder counts since macOS 10.6
+        NSNumberFormatter *grouped = [[[NSNumberFormatter alloc] init] autorelease];
+
+        [grouped setNumberStyle:NSNumberFormatterDecimalStyle];
+        [grouped setMaximumFractionDigits:0];
         return [NSString stringWithFormat:IDLocalized(@"%@ %@ (%@ bytes)"), [NSString stringWithFormat:v < 10 ? @"%.1f" : @"%.0f", v],
-                                          units[i], [NSNumberFormatter localizedStringFromNumber:@(bytes) numberStyle:NSNumberFormatterDecimalStyle]];
+                                          units[i], [grouped stringFromNumber:@(bytes)]];
     }
     return [NSString stringWithFormat:@"%llu %@", bytes, unit];
 }
@@ -1359,6 +1370,14 @@ static unsigned long long treeSize(NSString *path)
 
 #pragma mark menus
 
+// AppKit enables every item whose target answers its action; Clean Up has nothing to do while an order is set
+- (BOOL)validateMenuItem:(NSMenuItem *)item
+{
+    if ([item action] == @selector(cleanUp:) && [item representedObject] == nil)
+        return [sortBy isEqualToString:SortNone];
+    return YES;
+}
+
 static NSMenuItem *addItem(NSMenu *menu, NSString *title, SEL action, id target, id object)
 {
     NSMenuItem *item = [menu addItemWithTitle:title action:action keyEquivalent:@""];
@@ -1478,8 +1497,8 @@ static NSMenu *addSubmenu(NSMenu *menu, NSString *title)
         if (pair[0] == SortNone)
             [sort addItem:[NSMenuItem separatorItem]];
     }
-    // with an order set, Finder keeps the items in it, so Clean Up has nothing to do
-    [addItem(menu, IDLocalized(@"Clean Up"), @selector(cleanUp:), self, nil) setEnabled:[sortBy isEqualToString:SortNone]];
+    // with an order set, Finder keeps the items in it, so Clean Up has nothing to do (validateMenuItem:)
+    addItem(menu, IDLocalized(@"Clean Up"), @selector(cleanUp:), self, nil);
     clean = addSubmenu(menu, IDLocalized(@"Clean Up By"));
     for (NSArray *pair in @[ @[ SortName, @"Name" ], @[ SortKind, @"Kind" ], @[ SortModified, @"Date Modified" ],
                              @[ SortCreated, @"Date Created" ], @[ SortSize, @"Size" ] ])
@@ -1509,8 +1528,11 @@ static NSMenu *addSubmenu(NSMenu *menu, NSString *title)
     if (editing != nil)
         [self endEditing:YES];
     [[self window] makeFirstResponder:self];
-    if (item == nil)
+    // a right click on the empty desktop drops the selection, as a left click there does
+    if (item == nil) {
+        [self selectOnly:nil];
         return [self desktopMenu];
+    }
     if (!item->selected)
         [self selectOnly:item];
     return [self itemMenu];
