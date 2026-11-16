@@ -59,10 +59,11 @@ static NSString * const SortSize = @"size";
     [super dealloc];
 }
 
-// what Finder shows: the name, an app's without its extension
+// what Finder shows: the name, an app's without its extension, its accents composed: a name written in
+// decomposed form would show "e" and a separate accent beside it
 - (NSString *)title
 {
-    return app ? [name stringByDeletingPathExtension] : name;
+    return [(app ? [name stringByDeletingPathExtension] : name) precomposedStringWithCanonicalMapping];
 }
 
 @end
@@ -258,7 +259,7 @@ NSRect IDPictureRect(NSImage *picture, NSRect screen, NSRect region)
 - (NSSize)cellSize
 {
     return labelRight ? NSMakeSize(iconSize + 150, MAX(iconSize, 2 * ID_LINE) + 12)
-                      : NSMakeSize(MAX(iconSize + 42, 76), iconSize + 12 + 2 * ID_LINE + 4);
+                      : NSMakeSize(MAX(iconSize + 42, 76), iconSize + 2 * ID_LINE + 10);
 }
 
 // the grid fills the screen below the menu bar and above the dock, column by column from the top right
@@ -553,18 +554,22 @@ static NSString *cutMiddle(NSString *s, CGFloat width, NSDictionary *attrs)
             [[NSBezierPath bezierPathWithRoundedRect:[v rectValue] xRadius:4 yRadius:4] fill];
         [attrs setObject:[NSColor whiteColor] forKey:NSForegroundColorAttributeName];
     } else {
-        // white text over any picture, with the soft dark shadow macOS gives desktop labels
-        [shadow setShadowColor:[NSColor colorWithCalibratedWhite:0 alpha:0.75]];
+        // white text over any picture, with the soft dark shadow macOS gives desktop labels; the shadow is the
+        // context's, the text system draws the string's shadow attribute only where it supports it
+        [shadow setShadowColor:[NSColor colorWithCalibratedWhite:0 alpha:0.8]];
         [shadow setShadowOffset:NSMakeSize(0, -1)];
-        [shadow setShadowBlurRadius:2];
-        [attrs setObject:shadow forKey:NSShadowAttributeName];
+        [shadow setShadowBlurRadius:3];
         [attrs setObject:[NSColor colorWithCalibratedWhite:1 alpha:alpha] forKey:NSForegroundColorAttributeName];
     }
+    [NSGraphicsContext saveGraphicsState];
+    if (!item->selected)
+        [shadow set];
     for (NSUInteger i = 0; i < [lines count]; i++) {
         NSRect r = [[rects objectAtIndex:i] rectValue];
 
         [[lines objectAtIndex:i] drawAtPoint:NSMakePoint(NSMinX(r) + 4, NSMinY(r) + 0.5) withAttributes:attrs];
     }
+    [NSGraphicsContext restoreGraphicsState];
 }
 
 - (void)drawRect:(NSRect)dirty
