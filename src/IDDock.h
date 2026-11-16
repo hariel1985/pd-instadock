@@ -230,6 +230,10 @@ typedef struct {
 - (void)showPrefs:(id)sender;
 - (void)emptyTrash:(id)sender;
 - (NSArray *)installedApps;
+- (id)pref:(NSString *)key;
+- (CGFloat)dockReserve; // what the dock keeps of the screen's bottom edge, in points
+- (void)showWallpaperSettings:(id)sender;
+- (void)showDisplaySettings:(id)sender;
 
 // from the input view, in the overlay's coordinates
 - (void)pointerMovedTo:(NSPoint)p;
@@ -239,6 +243,44 @@ typedef struct {
 - (void)draggedTo:(NSPoint)p;
 - (void)releasedAt:(NSPoint)p;
 - (void)rightClickAt:(NSPoint)p;
+@end
+
+// the desktop's window, which takes the keyboard when clicked
+@interface IDDesktopWindow : NSWindow
+@end
+
+@class IDDesktopItem;
+// the desktop picture, cropped to fill the screen like macOS's fill mode, and the items of ~/Desktop on it
+@interface IDDesktopView : NSView <NSTextFieldDelegate> {
+@public
+    IDController *controller;
+    NSImage *picture;
+@private
+    NSString *folder;
+    NSMutableArray *icons;   // IDDesktopItem, in no particular order
+    dispatch_source_t watch; // kqueue on the folder
+    int watchFD;
+    CGFloat iconSize;
+    BOOL labelRight;
+    NSString *sortBy;
+    NSRect area;             // what the grid may cover
+    NSSize cell;
+    NSInteger columns, rows;
+    IDDesktopItem *anchor;   // where Shift-click and the arrows go on from
+    BOOL banding;
+    NSRect band;
+    NSTextField *editor;
+    IDDesktopItem *editing;
+    NSArray *cutPaths;       // cut, waiting for a paste to move them
+    NSInteger cutChange;
+    NSMutableArray *infoPanels;
+    NSString *typed;
+    NSTimeInterval typedAt, lastClickTime;
+    BOOL placed; // the window has the screen's size
+}
+- (void)readPreferences;
+- (void)startWatching;
+- (void)layoutIcons; // the screen, the dock or the preferences changed
 @end
 
 NSString *IDLocalized(NSString *key);
