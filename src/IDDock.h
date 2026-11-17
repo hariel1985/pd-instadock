@@ -60,6 +60,7 @@ typedef enum {
 - (NSString *)bundleExecutable;
 - (void)makeLevels;
 - (void)makeBadgeLevels;
+- (void)forgetLevels;
 - (void)forgetBadgeLevels;
 @end
 

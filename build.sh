@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # InstaDock fordítása PureDarwinra a puredarwin-vm eszközláncával (Zig, ld64, a VM image-éből
 # kinyert PD SDK): PDVM=<a puredarwin-vm munkakönyvtára>, alapból ~/vm.
-# Kimenet: build/Dock.app. Az ikonokat a PureDarwin b2c1916-os forrásának SVG-iből rajzolja.
+# Kimenet: build/Dock.app. A Kuka ikonjait a pd-downstream AppIcons rajzaiból készíti (PD_ICONS_REF, alapból
+# feature/app-icons).
 #
 #   ./build.sh            fordítás
 #   ./build.sh --install  fordítás, telepítés a VM-be a gyári Dock helyére, a Dock újraindítása
@@ -58,16 +59,15 @@ for l in "$here"/Resources/*.lproj; do
   cp "$l"/*.strings "$app/Resources/$(basename "$l")/"
 done
 
-# az ikonok a PureDarwin forrásából (Trenta, CC BY-SA 4.0), 256 px-en, hogy nagyítva is élesek legyenek
-pd=(git -C "$PDVM/src/PureDarwin" show)
-for pair in Dock:trash Dock:calculator Dock:files Dock:maps Dock:settings Dock:terminal Dock:web \
-            Finder:folder Finder:folder-download Finder:folder-music Finder:folder-pictures Finder:folder-videos \
-            Finder:folder-documents Finder:user-desktop Finder:user-home; do
-  dir=${pair%%:*} name=${pair#*:}
-  "${pd[@]}" "$PD_BASE:src/Userspace/$dir/Resources/$name.svg" > "$o/svg/$name.svg"
-  magick -background none -density 384 "$o/svg/$name.svg" -resize 256x256 "$app/Resources/$name.png"
+# a Kuka két ikonja a disztró saját rajzaiból (pd-downstream src/Userspace/AppIcons, jogvédett grafika), 256 px-en,
+# hogy nagyítva is élesek legyenek; az alkalmazások és a mappák ikonja az NSWorkspace-től jön, mint a Finderben
+need "$(command -v rsvg-convert)" "rsvg-convert kell (a nagy rajzok elmosása és vágása miatt), pl. nix shell nixpkgs#librsvg"
+icons=(git -C "${PD_ICONS_GIT:-$PDVM/src/pd-downstream.git}" show)
+icons_ref="${PD_ICONS_REF:-feature/app-icons}"
+for name in trash trash-full; do
+  "${icons[@]}" "$icons_ref:src/Userspace/AppIcons/Resources/$name.svg" > "$o/svg/$name.svg"
+  rsvg-convert -w 256 -h 256 "$o/svg/$name.svg" -o "$app/Resources/$name.png"
 done
-"${pd[@]}" "$PD_BASE:src/Userspace/Dock/Resources/TRENTA-LICENSE" > "$app/Resources/TRENTA-LICENSE"
 echo "kész: $o/Dock.app"
 
 if [ "${1:-}" = --install ]; then
