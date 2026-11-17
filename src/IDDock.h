@@ -240,6 +240,11 @@ typedef struct {
 - (void)draggedTo:(NSPoint)p;
 - (void)releasedAt:(NSPoint)p;
 - (void)rightClickAt:(NSPoint)p;
+// files dragged over the dock, from Finder or another app: onto the Trash they go to the Trash, onto an app they open
+// with it, onto a stack they go into its folder
+- (NSDragOperation)filesDragged:(NSArray *)paths to:(NSPoint)p allowed:(NSDragOperation)allowed;
+- (BOOL)filesDropped:(NSArray *)paths at:(NSPoint)p allowed:(NSDragOperation)allowed;
+- (void)filesDragEnded;
 @end
 
 NSString *IDLocalized(NSString *key);

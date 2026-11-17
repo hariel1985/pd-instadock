@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #if __has_include(<notify.h>)
 #include <notify.h>
 #else
@@ -175,7 +176,8 @@ NSRect IDPictureRect(NSImage *picture, NSRect screen, NSRect region)
     [picture drawInRect:bounds fromRect:IDPictureRect(picture, bounds, bounds) operation:NSCompositeCopy fraction:1];
 }
 
-// the desktop's own menu, as Finder gives it on macOS; AppKit opens it on a right click
+// Finder's desktop items lie over this window and its menu is Finder's, as on macOS; this one is seen only
+// while Finder is not running
 - (NSMenu *)menuForEvent:(NSEvent *)event
 {
     NSMenu *menu = [[[NSMenu alloc] initWithTitle:@""] autorelease];
@@ -820,6 +822,7 @@ static NSImage *loadPicture(NSString *name, NSSize screen, CGFloat scale)
     dockView->pointerX = NAN;
     inputView = [[IDInputView alloc] initWithFrame:NSMakeRect(0, 0, 100, 60)];
     inputView->controller = self;
+    [inputView registerForDraggedTypes:@[ NSFilenamesPboardType ]];
 }
 
 #pragma mark changes
@@ -1207,8 +1210,9 @@ static BOOL sameSettings(IDSettings a, IDSettings b)
     if ([[path pathExtension] isEqualToString:@"app"]) {
         [[NSWorkspace sharedWorkspace] launchApplication:path];
     } else if (directory) {
-        // Finder opens at home and cannot be pointed at a folder yet
-        [[NSWorkspace sharedWorkspace] launchApplication:FinderPath];
+        // LaunchServices hands a folder to Finder, which opens a window there
+        if (![[NSWorkspace sharedWorkspace] openFile:path])
+            [[NSWorkspace sharedWorkspace] launchApplication:FinderPath];
     } else {
         [[NSWorkspace sharedWorkspace] openFile:path];
     }
@@ -1503,6 +1507,107 @@ static void reopenProcess(pid_t pid)
         return;
     }
     [self pointerMovedTo:NSMakePoint(NSMinX(bar) + NSWidth(bar) * (0.5 + 0.45 * sin(t * 1.3)), NSMidY(bar))];
+}
+
+#pragma mark files dragged over the dock
+
+// what dropping the files on the tile under the point does, as the macOS Dock: the Trash takes them (a move to the
+// Trash), an app opens them, a stack's folder gets them moved on the same disk and copied onto another one
+- (NSDragOperation)dropOperationFor:(NSArray *)paths onto:(IDItem *)item allowed:(NSDragOperation)allowed
+{
+    struct stat here, there;
+
+    if (item == nil)
+        return NSDragOperationNone;
+    switch (item->kind) {
+    case IDItemTrash:
+        return allowed & NSDragOperationDelete ? NSDragOperationDelete :
+               allowed & (NSDragOperationMove | NSDragOperationGeneric) ? NSDragOperationMove : NSDragOperationNone;
+    case IDItemApp:
+        return allowed & NSDragOperationGeneric ? NSDragOperationGeneric : allowed & NSDragOperationCopy;
+    case IDItemStack:
+        if ([paths containsObject:item->path] || stat([item->path fileSystemRepresentation], &here) != 0)
+            return NSDragOperationNone;
+        if (stat([[paths objectAtIndex:0] fileSystemRepresentation], &there) == 0 && there.st_dev == here.st_dev &&
+            (allowed & (NSDragOperationMove | NSDragOperationGeneric)))
+            return NSDragOperationMove;
+        return allowed & NSDragOperationCopy;
+    default:
+        return NSDragOperationNone;
+    }
+}
+
+- (NSDragOperation)filesDragged:(NSArray *)paths to:(NSPoint)p allowed:(NSDragOperation)allowed
+{
+    IDItem *item = [dockView itemAtX:p.x];
+    NSDragOperation op = [self dropOperationFor:paths onto:item allowed:allowed];
+
+    // the dock follows the pointer as it does without a drag: it magnifies there, and the tile that would take the
+    // files shows its name
+    if (!inside)
+        [self pointerEntered];
+    dockView->pointerX = p.x;
+    dockView->hover = op != NSDragOperationNone ? item : nil;
+    [self startAnimating];
+    return op;
+}
+
+- (BOOL)filesDropped:(NSArray *)paths at:(NSPoint)p allowed:(NSDragOperation)allowed
+{
+    IDItem *item = [dockView itemAtX:p.x];
+    NSDragOperation op = [self dropOperationFor:paths onto:item allowed:allowed];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSMutableArray *urls = [NSMutableArray array];
+    __block BOOL done = YES;
+
+    if (op == NSDragOperationNone)
+        return NO;
+    switch (item->kind) {
+    case IDItemTrash:
+        // through NSWorkspace, which notes where each came from, so Finder can put them back
+        for (NSString *path in paths)
+            [urls addObject:[NSURL fileURLWithPath:path]];
+        [[NSWorkspace sharedWorkspace] recycleURLs:urls completionHandler:^(NSDictionary *moved, NSError *error) {
+            if (error != nil)
+                done = NO;
+        }];
+        item->count = [self trashCount];
+        break;
+    case IDItemApp:
+        for (NSString *path in paths)
+            done = [[NSWorkspace sharedWorkspace] openFile:path withApplication:item->path] && done;
+        break;
+    case IDItemStack:
+        for (NSString *path in paths) {
+            NSString *name = [path lastPathComponent], *target = [item->path stringByAppendingPathComponent:name];
+
+            // a name already in the folder gets a number, as Finder gives one
+            for (int n = 2; [fm fileExistsAtPath:target]; n++) {
+                NSString *base = [name stringByDeletingPathExtension], *ext = [name pathExtension];
+                NSString *numbered = [NSString stringWithFormat:@"%@ %d", base, n];
+
+                target = [item->path stringByAppendingPathComponent:[ext length] ? [numbered stringByAppendingPathExtension:ext] : numbered];
+            }
+            if (!(op == NSDragOperationMove ? [fm moveItemAtPath:path toPath:target error:NULL]
+                                            : [fm copyItemAtPath:path toPath:target error:NULL])) {
+                done = NO;
+                break;
+            }
+        }
+        break;
+    default:
+        return NO;
+    }
+    if (!done)
+        NSBeep();
+    [self itemsChanged];
+    return done;
+}
+
+- (void)filesDragEnded
+{
+    if (inside)
+        [self pointerExited];
 }
 
 @end
