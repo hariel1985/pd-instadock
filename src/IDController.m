@@ -434,30 +434,38 @@ static NSColor *hsb(CGFloat h, CGFloat s, CGFloat v)
     return [cached boolValue];
 }
 
+// the regular app bundle a process runs from, nil for the Dock itself and anything that is not one
+- (NSString *)bundleForPid:(pid_t)pid
+{
+    char buffer[ID_PIDPATH_MAX];
+    NSString *exe, *macos, *contents, *bundle;
+
+    if (pid <= 0 || pid == getpid() || proc_pidpath(pid, buffer, sizeof(buffer)) <= 0)
+        return nil;
+    exe = [NSString stringWithUTF8String:buffer];
+    macos = [exe stringByDeletingLastPathComponent];
+    contents = [macos stringByDeletingLastPathComponent];
+    if (![[macos lastPathComponent] isEqualToString:@"MacOS"] || ![[contents lastPathComponent] isEqualToString:@"Contents"])
+        return nil;
+    bundle = [contents stringByDeletingLastPathComponent];
+    return [self isRegularApp:bundle] ? bundle : nil;
+}
+
 // every running app bundle with its processes
 - (NSDictionary *)runningBundles
 {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
     int count = proc_listallpids(NULL, 0);
-    pid_t *pids, me = getpid();
+    pid_t *pids;
 
     if (count <= 0)
         return result;
     pids = calloc((size_t)count + 32, sizeof(pid_t));
     count = proc_listallpids(pids, (int)(((size_t)count + 32) * sizeof(pid_t)));
     for (int i = 0; i < count; i++) {
-        char buffer[ID_PIDPATH_MAX];
-        NSString *exe, *macos, *contents, *bundle;
+        NSString *bundle = [self bundleForPid:pids[i]];
 
-        if (pids[i] <= 0 || pids[i] == me || proc_pidpath(pids[i], buffer, sizeof(buffer)) <= 0)
-            continue;
-        exe = [NSString stringWithUTF8String:buffer];
-        macos = [exe stringByDeletingLastPathComponent];
-        contents = [macos stringByDeletingLastPathComponent];
-        if (![[macos lastPathComponent] isEqualToString:@"MacOS"] || ![[contents lastPathComponent] isEqualToString:@"Contents"])
-            continue;
-        bundle = [contents stringByDeletingLastPathComponent];
-        if (![self isRegularApp:bundle])
+        if (bundle == nil)
             continue;
         if (result[bundle] == nil)
             result[bundle] = [NSMutableArray array];
@@ -1291,10 +1299,11 @@ static void reopenProcess(pid_t pid)
         [self scheduleHide];
 }
 
+// as macOS's quit event: the app quits as from its own Quit item and can ask about its documents
 - (void)quit:(IDItem *)item
 {
     for (NSNumber *pid in item->pids)
-        kill([pid intValue], SIGTERM);
+        [[NSRunningApplication runningApplicationWithProcessIdentifier:[pid intValue]] terminate];
 }
 
 - (void)forceQuit:(IDItem *)item
@@ -1493,6 +1502,7 @@ static void reopenProcess(pid_t pid)
     [self makeWindows];
     [self placeDesktop:nil];
     [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(tick:) userInfo:nil repeats:YES];
+    switcher = [[IDSwitcher alloc] initWithController:self];
     if (getenv("ID_PREFS") != NULL)
         [self performSelector:@selector(showPrefs:) withObject:nil afterDelay:3];
     if (getenv("ID_DEMO") != NULL)
