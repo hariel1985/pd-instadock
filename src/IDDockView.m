@@ -598,4 +598,50 @@ static double now_ms(void)
     [controller rightClickAt:[self overlayPoint:event]];
 }
 
+#pragma mark files dragged over the dock
+
+// a point in this window as the overlay's
+- (NSPoint)overlayPointOf:(id<NSDraggingInfo>)info
+{
+    NSPoint p = [self convertPoint:[info draggingLocation] fromView:nil];
+    NSRect mine = [[self window] frame], theirs = [controller->overlay frame];
+
+    return NSMakePoint(p.x + NSMinX(mine) - NSMinX(theirs), p.y + NSMinY(mine) - NSMinY(theirs));
+}
+
+static NSArray *draggedPaths(id<NSDraggingInfo> info)
+{
+    NSPasteboard *pb = [info draggingPasteboard];
+    NSArray *paths = [[pb types] containsObject:NSFilenamesPboardType] ? [pb propertyListForType:NSFilenamesPboardType] : nil;
+
+    return [paths isKindOfClass:[NSArray class]] && [paths count] > 0 ? paths : nil;
+}
+
+- (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)info
+{
+    return [self draggingUpdated:info];
+}
+
+- (NSDragOperation)draggingUpdated:(id<NSDraggingInfo>)info
+{
+    NSArray *paths = draggedPaths(info);
+
+    return paths ? [controller filesDragged:paths to:[self overlayPointOf:info] allowed:[info draggingSourceOperationMask]]
+                 : NSDragOperationNone;
+}
+
+- (void)draggingExited:(id<NSDraggingInfo>)info
+{
+    [controller filesDragEnded];
+}
+
+- (BOOL)performDragOperation:(id<NSDraggingInfo>)info
+{
+    NSArray *paths = draggedPaths(info);
+    BOOL done = paths && [controller filesDropped:paths at:[self overlayPointOf:info] allowed:[info draggingSourceOperationMask]];
+
+    [controller filesDragEnded];
+    return done;
+}
+
 @end
