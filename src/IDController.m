@@ -379,14 +379,10 @@ static NSColor *hsb(CGFloat h, CGFloat s, CGFloat v)
 
     [[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:&directory];
     if ([ext isEqualToString:@"app"]) {
-        NSBundle *bundle = [NSBundle bundleWithPath:path];
-        NSString *file = [bundle objectForInfoDictionaryKey:@"CFBundleIconFile"];
-
-        // the icon file is found the way the rest of the system finds it: a name without an
-        // extension is an .icns, as on macOS
-        if ([file length] > 0)
-            image = [[NSWorkspace sharedWorkspace] iconForFile:path];
-        if (image == nil)
+        // the icon the rest of the system shows: the app's own (CFBundleIconFile, a bare name being an .icns, then
+        // CFBundleIconName) or the generic application icon; a letter tile only when the system has none at all
+        image = [[NSWorkspace sharedWorkspace] iconForFile:path];
+        if (image == nil || [[image representations] count] == 0)
             image = [self letterIcon:[self labelForPath:path]];
     } else if (!directory && [@[ @"png", @"jpg", @"jpeg", @"gif", @"tif", @"tiff", @"bmp" ] containsObject:ext]) {
         // a picture is its own icon
