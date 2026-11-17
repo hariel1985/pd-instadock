@@ -83,8 +83,7 @@ static NSString *trashPath(void)
 
 - (void)dealloc
 {
-    for (int i = 0; i < levelCount; i++)
-        free(levels[i].px);
+    [self forgetLevels];
     [self forgetBadgeLevels];
     [path release];
     [label release];
@@ -118,6 +117,14 @@ static int makeLevels(NSImage *image, IDPixels levels[3])
 {
     if (badgeLevelCount == 0)
         badgeLevelCount = makeLevels(badge, badgeLevels);
+}
+
+// the pixels go when the icon changes, or draws differently (another accent colour), and are made again
+- (void)forgetLevels
+{
+    for (int i = 0; i < levelCount; i++)
+        free(levels[i].px);
+    levelCount = 0;
 }
 
 - (void)forgetBadgeLevels
@@ -900,6 +907,7 @@ static BOOL sameSettings(IDSettings a, IDSettings b)
                 if ((n > 0) != (item->count > 0)) {
                     [item->icon release];
                     item->icon = [[self trashIcon:n] retain];
+                    [item forgetLevels];
                 }
                 item->count = n;
                 [dockView setNeedsDisplay:YES];
@@ -1453,6 +1461,9 @@ static void reopenProcess(pid_t pid)
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(placeDesktop:)
                                                  name:NSApplicationDidChangeScreenParametersNotification object:nil];
+    // folders follow the accent colour: their icons draw anew, the pixels made from them have to go
+    [[NSDistributedNotificationCenter defaultCenter] addObserver:self selector:@selector(accentChanged:)
+                                                            name:@"AppleColorPreferencesChangedNotification" object:nil];
     [self rebuildItems];
     [self makeWindows];
     [self placeDesktop:nil];
@@ -1461,6 +1472,15 @@ static void reopenProcess(pid_t pid)
         [self performSelector:@selector(showPrefs:) withObject:nil afterDelay:3];
     if (getenv("ID_DEMO") != NULL)
         [NSTimer scheduledTimerWithTimeInterval:3 target:self selector:@selector(demo:) userInfo:nil repeats:NO];
+}
+
+- (void)accentChanged:(NSNotification *)note
+{
+    for (IDItem *item in items) {
+        [item forgetLevels];
+        [item forgetBadgeLevels];
+    }
+    [dockView setNeedsDisplay:YES];
 }
 
 // ID_DEMO: a pointer that sweeps the bar for six seconds, to measure the frame time without a mouse
