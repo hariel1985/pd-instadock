@@ -41,7 +41,10 @@ Like the stock Dock it also draws the desktop picture, and it reads the same pre
 ## Building
 
 Uses the toolchain of the puredarwin-vm repository (Zig, ld64, the PD SDK taken from the VM image), `PDVM`
-defaults to `~/vm`. The icons are rendered from PureDarwin's own SVGs at commit `b2c1916` (Trenta, CC BY-SA 4.0).
+defaults to `~/vm`. Apps and folders show the icons NSWorkspace gives them, as in Finder. The Trash's two icons
+(empty and full) are rendered with `rsvg-convert` from the distribution's own drawings in pd-downstream
+`src/Userspace/AppIcons` (`PD_ICONS_REF`, `feature/app-icons` by default); they are proprietary artwork, not covered
+by this repository's licences.
 
 ```
 ./build.sh            # build/Dock.app

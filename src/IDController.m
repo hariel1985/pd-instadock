@@ -305,6 +305,12 @@ static BOOL flag(id value, BOOL fallback)
     return png ? [[[NSImage alloc] initWithContentsOfFile:png] autorelease] : nil;
 }
 
+// the Trash, empty or with something in it, as on macOS
+- (NSImage *)trashIcon:(NSUInteger)count
+{
+    return [self resourceIcon:count > 0 ? @"trash-full" : @"trash"];
+}
+
 // HSB to a colour by hand, PD's colorWithCalibratedHue: ignores saturation and brightness
 static NSColor *hsb(CGFloat h, CGFloat s, CGFloat v)
 {
@@ -359,41 +365,25 @@ static NSColor *hsb(CGFloat h, CGFloat s, CGFloat v)
 - (NSImage *)loadIconForPath:(NSString *)path
 {
     NSString *ext = [[path pathExtension] lowercaseString];
-    NSString *name = [path lastPathComponent];
     BOOL directory = NO;
     NSImage *image = nil;
 
     [[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:&directory];
     if ([ext isEqualToString:@"app"]) {
-        // the sharper renders this dock ships win over the apps' own
-        NSDictionary *own = @{ @"Finder.app": @"files", @"Calculator.app": @"calculator", @"Settings.app": @"settings",
-                               @"Terminal.app": @"terminal", @"Maps.app": @"maps", @"Web.app": @"web" };
         NSBundle *bundle = [NSBundle bundleWithPath:path];
         NSString *file = [bundle objectForInfoDictionaryKey:@"CFBundleIconFile"];
 
-        if (own[name] != nil)
-            image = [self resourceIcon:own[name]];
         // the icon file is found the way the rest of the system finds it: a name without an
         // extension is an .icns, as on macOS
-        if (image == nil && [file length] > 0)
+        if ([file length] > 0)
             image = [[NSWorkspace sharedWorkspace] iconForFile:path];
         if (image == nil)
             image = [self letterIcon:[self labelForPath:path]];
-    } else if (directory) {
-        NSDictionary *folders = @{ @"Downloads": @"folder-download", @"Documents": @"folder-documents", @"Pictures": @"folder-pictures",
-                                   @"Music": @"folder-music", @"Movies": @"folder-videos", @"Videos": @"folder-videos",
-                                   @"Desktop": @"user-desktop" };
-
-        if ([path isEqualToString:NSHomeDirectory()])
-            image = [self resourceIcon:@"user-home"];
-        else if (folders[name] != nil)
-            image = [self resourceIcon:folders[name]];
-        if (image == nil)
-            image = [self resourceIcon:@"folder"];
-    } else if ([@[ @"png", @"jpg", @"jpeg", @"gif", @"tif", @"tiff", @"bmp" ] containsObject:ext]) {
+    } else if (!directory && [@[ @"png", @"jpg", @"jpeg", @"gif", @"tif", @"tiff", @"bmp" ] containsObject:ext]) {
         // a picture is its own icon
         image = [[[NSImage alloc] initWithContentsOfFile:path] autorelease];
     }
+    // everything else, folders and the special ones too, looks as it does in Finder, folders in the accent colour
     if (image == nil)
         image = [[NSWorkspace sharedWorkspace] iconForFile:path];
     return image;
@@ -567,7 +557,7 @@ static NSColor *hsb(CGFloat h, CGFloat s, CGFloat v)
         if (item->label == nil)
             item->label = [(item->kind == IDItemTrash ? L("Trash") : [self labelForPath:item->path]) copy];
         if (item->icon == nil && item->kind != IDItemSeparator)
-            item->icon = [(item->kind == IDItemTrash ? [self resourceIcon:@"trash"] : [self iconForPath:item->path]) retain];
+            item->icon = [(item->kind == IDItemTrash ? [self trashIcon:item->count] : [self iconForPath:item->path]) retain];
         [item->pids release];
         item->pids = [pids retain];
         item->running = [pids count] > 0;
@@ -906,6 +896,11 @@ static BOOL sameSettings(IDSettings a, IDSettings b)
             NSUInteger n = [self trashCount];
 
             if (n != item->count) {
+                // the bin fills with the first item and empties with the last
+                if ((n > 0) != (item->count > 0)) {
+                    [item->icon release];
+                    item->icon = [[self trashIcon:n] retain];
+                }
                 item->count = n;
                 [dockView setNeedsDisplay:YES];
             }
